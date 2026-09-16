@@ -21,9 +21,9 @@ license.
 The retained exchange icons, their sources, and the MIT notice for the Web3
 Icons vectors are documented in
 [`apps/frontend/src/assets/exchanges/README.md`](apps/frontend/src/assets/exchanges/README.md).
-Gate and Deribit are represented by text badges rather than redistributed
-official artwork. Exchange names and retained logos remain trademarks of their
-respective owners.
+The Lighter mark is an original monogram drawn for this project rather than
+redistributed official artwork. Exchange names and retained logos remain
+trademarks of their respective owners.
 
 ## Installed dependencies
 

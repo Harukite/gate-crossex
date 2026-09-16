@@ -35,12 +35,15 @@ describe('transferAccountsFor', () => {
       'CROSSEX_BYBIT',
       'CROSSEX_HYPERLIQUID',
       'CROSSEX_DERIBIT',
+      'CROSSEX_LIGHTER',
     ]);
   });
 
   it('keeps unsupported venue/currency combinations out of the selectors', () => {
     expect(transferAccountsFor('BTC', 'ISOLATED_EXCHANGE')).not.toContain('CROSSEX_KRAKEN');
     expect(transferAccountsFor('BTC', 'ISOLATED_EXCHANGE')).not.toContain('CROSSEX_HYPERLIQUID');
+    expect(transferAccountsFor('BTC', 'ISOLATED_EXCHANGE')).not.toContain('CROSSEX_LIGHTER');
+    expect(transferAccountsFor('USDC', 'ISOLATED_EXCHANGE')).toContain('CROSSEX_LIGHTER');
     expect(transferAccountsFor('USDT', 'CROSS_EXCHANGE')).toEqual(['SPOT', 'CROSSEX']);
   });
 });

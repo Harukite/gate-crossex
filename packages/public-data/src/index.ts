@@ -127,6 +127,23 @@ const HyperliquidFundingHistoryRowSchema = z.object({
 const DeribitFundingHistorySchema = z.object({
   result: z.array(z.object({ timestamp: z.number(), interest_1h: z.number() })),
 });
+const LighterMarketListSchema = z.object({
+  order_books: z.array(z.object({ symbol: z.string(), market_id: z.number().int().nonnegative() })),
+});
+const LighterCandleSchema = z.object({
+  c: z.array(z.object({ t: z.number(), o: numeric, h: numeric, l: numeric, c: numeric, v: numeric })),
+});
+const LighterFundingHistorySchema = z.object({
+  fundings: z.array(z.object({ timestamp: z.number(), rate: numeric, direction: z.string() })),
+});
+const LighterFundingRateListSchema = z.object({
+  funding_rates: z.array(z.object({ market_id: z.number(), exchange: z.string(), rate: numeric })),
+});
+const LighterMarketDetailSchema = z.object({
+  symbol: z.string(), market_id: z.number(), status: z.string(),
+  mark_price: numeric.optional(), last_trade_price: numeric.optional(),
+  open_interest: numeric.optional(), daily_price_change: numeric.optional(),
+});
 
 /** Kraken quotes a handful of assets under legacy codes; CrossEx uses the modern ones. */
 const KRAKEN_ASSET_RENAMES: Record<string, string> = { XBT: 'BTC', XDG: 'DOGE' };
@@ -134,6 +151,12 @@ const HYPERLIQUID_METADATA_FRESH_MS = 30 * 60_000;
 const HYPERLIQUID_FORCED_REFRESH_MIN_MS = 60_000;
 const HYPERLIQUID_FUNDING_HISTORY_RETRY_DELAYS_MS = [500, 1_500] as const;
 const HYPERLIQUID_FUNDING_HISTORY_PAGE_SPACING_MS = 1_500;
+const LIGHTER_API_URL = 'https://mainnet.zklighter.elliot.ai/api/v1';
+const LIGHTER_MARKETS_FRESH_MS = 30 * 60_000;
+const LIGHTER_MARKETS_FORCED_REFRESH_MIN_MS = 60_000;
+/** Lighter caps one funding-history response at this many hourly rows and keeps the newest ones. */
+const LIGHTER_FUNDING_HISTORY_PAGE_ROWS = 750;
+const LIGHTER_FUNDING_HISTORY_MAX_PAGES = 4;
 const MAX_RETRY_AFTER_MS = 10_000;
 
 function hyperliquidBase(nativeName: string): string {
@@ -169,6 +192,17 @@ function positiveNumberText(value: unknown): string | null {
 function fractionFromPercent(value: unknown): string | null {
   const parsed = finiteNumber(value);
   return parsed === null ? null : String(parsed / 100);
+}
+
+/** Shift a short decimal percent text two places without the float noise of dividing by 100. */
+function fractionFromPercentText(value: unknown): string | null {
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(String(value).trim());
+  if (!match?.[2]) return null;
+  const digits = `${match[2]}${match[3] ?? ''}`;
+  const point = match[2].length - 2;
+  const shifted = point > 0 ? `${digits.slice(0, point)}.${digits.slice(point)}` : `0.${'0'.repeat(-point)}${digits}`;
+  const parsed = Number(`${match[1] ?? ''}${shifted}`);
+  return Number.isFinite(parsed) ? String(parsed) : null;
 }
 
 function changeFraction(currentValue: unknown, previousValue: unknown): string | null {
@@ -249,7 +283,7 @@ export interface VenueContractSize {
   multiplier: string;
 }
 
-export const FUNDING_STAT_VENUES = ['GATE', 'BINANCE', 'OKX', 'BYBIT', 'KRAKEN', 'HYPERLIQUID', 'DERIBIT'] as const;
+export const FUNDING_STAT_VENUES = ['GATE', 'BINANCE', 'OKX', 'BYBIT', 'KRAKEN', 'HYPERLIQUID', 'DERIBIT', 'LIGHTER'] as const;
 export type FundingStatVenue = typeof FUNDING_STAT_VENUES[number];
 
 /**
@@ -376,7 +410,7 @@ interface ParsedSymbol {
 }
 
 function parseCrossExFutureSymbol(symbol: string): ParsedSymbol {
-  const match = /^(BINANCE|GATE|OKX|BYBIT|KRAKEN|HYPERLIQUID|DERIBIT)_FUTURE_(.+)_([A-Z0-9]+)$/.exec(symbol);
+  const match = /^(BINANCE|GATE|OKX|BYBIT|KRAKEN|HYPERLIQUID|DERIBIT|LIGHTER)_FUTURE_(.+)_([A-Z0-9]+)$/.exec(symbol);
   if (!match?.[1] || !match[2] || !match[3]) throw new PublicMarketDataError('UNSUPPORTED_SYMBOL');
   return { venue: match[1] as ParsedSymbol['venue'], base: match[2], quote: match[3] };
 }
@@ -514,6 +548,10 @@ export class VenuePublicMarketDataClient implements PublicMarketDataGateway {
   private hyperliquidMetadataSnapshot: HyperliquidPerpMetadataSnapshot | null;
   private hyperliquidMetadataInFlight: Promise<HyperliquidPerpMetadataSnapshot> | null = null;
   private hyperliquidMetadataLastAttemptAt = Number.NEGATIVE_INFINITY;
+  private lighterMarketIds: Map<string, number> | null = null;
+  private lighterMarketsFetchedAt = Number.NEGATIVE_INFINITY;
+  private lighterMarketsLastAttemptAt = Number.NEGATIVE_INFINITY;
+  private lighterMarketsInFlight: Promise<Map<string, number>> | null = null;
 
   constructor(
     private readonly fetchImplementation: typeof fetch = fetch,
@@ -624,6 +662,7 @@ export class VenuePublicMarketDataClient implements PublicMarketDataGateway {
       case 'KRAKEN': candles = await this.queryKrakenCandles(symbol, interval, boundedLimit, before); break;
       case 'HYPERLIQUID': candles = await this.queryHyperliquidCandles(symbol, interval, boundedLimit, before); break;
       case 'DERIBIT': candles = await this.queryDeribitCandles(symbol, interval, boundedLimit, before); break;
+      case 'LIGHTER': candles = await this.queryLighterCandles(symbol, interval, boundedLimit, before); break;
     }
     const now = this.now();
     return candles
@@ -774,6 +813,66 @@ export class VenuePublicMarketDataClient implements PublicMarketDataGateway {
     return interval === '4h' ? aggregateCandles(candles, INTERVAL_MILLISECONDS['4h']) : candles;
   }
 
+  /**
+   * Lighter addresses every REST feed by numeric market id, so map CrossEx asset codes through its
+   * public market list. The list is small and rarely changes; it stays cached in memory and is
+   * re-fetched at most once a minute when an unknown asset shows up.
+   */
+  private async loadLighterMarkets(force = false): Promise<Map<string, number>> {
+    const now = this.now();
+    const cached = this.lighterMarketIds;
+    if (!force && cached && now - this.lighterMarketsFetchedAt < LIGHTER_MARKETS_FRESH_MS) return cached;
+    if (force && cached && now - this.lighterMarketsLastAttemptAt < LIGHTER_MARKETS_FORCED_REFRESH_MIN_MS) return cached;
+    if (this.lighterMarketsInFlight) return this.lighterMarketsInFlight;
+
+    this.lighterMarketsLastAttemptAt = now;
+    const pending = (async () => {
+      try {
+        const payload = await fetchJson(this.fetchImplementation, `${LIGHTER_API_URL}/orderBooks`, 4_000_000);
+        const markets = new Map<string, number>();
+        for (const market of parsePayload(LighterMarketListSchema, payload).order_books) {
+          if (/^[A-Z0-9]+$/.test(market.symbol)) markets.set(market.symbol, market.market_id);
+        }
+        if (markets.size === 0) throw new PublicMarketDataError('EMPTY_LIGHTER_MARKETS');
+        this.lighterMarketIds = markets;
+        this.lighterMarketsFetchedAt = this.now();
+        return markets;
+      } catch (error) {
+        if (cached) return cached;
+        throw error;
+      }
+    })().finally(() => {
+      if (this.lighterMarketsInFlight === pending) this.lighterMarketsInFlight = null;
+    });
+    this.lighterMarketsInFlight = pending;
+    return pending;
+  }
+
+  private async resolveLighterMarketId(base: string): Promise<number> {
+    const cached = (await this.loadLighterMarkets()).get(base);
+    if (cached !== undefined) return cached;
+    const refreshed = (await this.loadLighterMarkets(true)).get(base);
+    if (refreshed === undefined) throw new PublicMarketDataError('UNKNOWN_LIGHTER_MARKET');
+    return refreshed;
+  }
+
+  private async queryLighterCandles(symbol: ParsedSymbol, interval: CandleInterval, limit: number, before?: number): Promise<Candle[]> {
+    if (symbol.quote !== 'USDC') throw new PublicMarketDataError('UNSUPPORTED_SETTLEMENT');
+    const marketId = await this.resolveLighterMarketId(symbol.base);
+    const endTime = before === undefined ? this.now() : before - 1;
+    const startTime = Math.max(1, endTime - INTERVAL_MILLISECONDS[interval] * limit);
+    // Lighter's resolution names match CandleInterval for every interval the terminal charts.
+    const payload = await fetchJson(
+      this.fetchImplementation,
+      `${LIGHTER_API_URL}/candles?market_id=${marketId}&resolution=${interval}&start_timestamp=${startTime}&end_timestamp=${endTime}&count_back=${limit}`,
+      4_000_000,
+    );
+    return parsePayload(LighterCandleSchema, payload).c.map((row) => ({
+      startTime: row.t, open: String(row.o), high: String(row.h), low: String(row.l),
+      close: String(row.c), volume: String(row.v), closed: true,
+    }));
+  }
+
   private async queryBinance(crossExSymbol: string, symbol: ParsedSymbol): Promise<PublicMarketSnapshot> {
     if (!['USDT', 'USDC'].includes(symbol.quote)) throw new PublicMarketDataError('UNSUPPORTED_SETTLEMENT');
     const venueSymbol = `${symbol.base}${symbol.quote}`;
@@ -822,6 +921,7 @@ export class VenuePublicMarketDataClient implements PublicMarketDataGateway {
     if (venue === 'BYBIT') return this.queryBybitFundingStats();
     if (venue === 'KRAKEN') return this.queryKrakenFundingStats();
     if (venue === 'HYPERLIQUID') return this.queryHyperliquidFundingStats();
+    if (venue === 'LIGHTER') return this.queryLighterFundingStats();
     return this.queryDeribitFundingStats();
   }
 
@@ -839,6 +939,7 @@ export class VenuePublicMarketDataClient implements PublicMarketDataGateway {
       case 'KRAKEN': points = await this.queryKrakenFundingHistory(symbol, startTime, endTime, signal); break;
       case 'HYPERLIQUID': points = await this.queryHyperliquidFundingHistory(symbol, startTime, endTime, signal); break;
       case 'DERIBIT': points = await this.queryDeribitFundingHistory(symbol, startTime, endTime, signal); break;
+      case 'LIGHTER': points = await this.queryLighterFundingHistory(symbol, startTime, endTime, signal); break;
     }
     return points
       .filter((point) => point.timestamp > startTime && point.timestamp <= endTime && Number.isFinite(Number(point.rate)))
@@ -1031,6 +1132,37 @@ export class VenuePublicMarketDataClient implements PublicMarketDataGateway {
       // would count the same accrual repeatedly.
       rate: String(row.interest_1h),
     }));
+  }
+
+  private async queryLighterFundingHistory(symbol: ParsedSymbol, startTime: number, endTime: number, signal?: AbortSignal): Promise<FundingRatePoint[]> {
+    if (symbol.quote !== 'USDC') throw new PublicMarketDataError('UNSUPPORTED_SETTLEMENT');
+    const marketId = await this.resolveLighterMarketId(symbol.base);
+    const points: FundingRatePoint[] = [];
+    const windowStart = Math.max(0, Math.floor(startTime / 1_000));
+    let windowEnd = Math.floor(endTime / 1_000);
+    for (let page = 0; page < LIGHTER_FUNDING_HISTORY_MAX_PAGES && windowEnd > windowStart; page += 1) {
+      const payload = await fetchJson(
+        this.fetchImplementation,
+        `${LIGHTER_API_URL}/fundings?market_id=${marketId}&resolution=1h&start_timestamp=${windowStart}&end_timestamp=${windowEnd}&count_back=0`,
+        4_000_000,
+        undefined,
+        signal,
+      );
+      const rows = parsePayload(LighterFundingHistorySchema, payload).fundings;
+      for (const row of rows) {
+        // Lighter reports each hourly settlement as an unsigned percentage plus the side that paid.
+        const magnitude = fractionFromPercentText(row.rate);
+        if (magnitude === null) continue;
+        const rate = row.direction === 'short' ? String(-Number(magnitude)) : magnitude;
+        points.push({ timestamp: row.timestamp * 1_000, rate });
+      }
+      // An overflowing window returns only its newest rows; walk back until a page comes up short.
+      if (rows.length < LIGHTER_FUNDING_HISTORY_PAGE_ROWS) break;
+      const oldest = Math.min(...rows.map((row) => row.timestamp));
+      if (!Number.isFinite(oldest) || oldest >= windowEnd) throw new PublicMarketDataError('INCOMPLETE_HISTORY');
+      windowEnd = oldest - 1;
+    }
+    return points;
   }
 
   private async queryGateFundingStats(): Promise<VenueFundingStat[]> {
@@ -1324,6 +1456,47 @@ export class VenuePublicMarketDataClient implements PublicMarketDataGateway {
       });
     }
     return stats;
+  }
+
+  private async queryLighterFundingStats(): Promise<VenueFundingStat[]> {
+    const [detailsPayload, rates] = await Promise.all([
+      fetchJson(this.fetchImplementation, `${LIGHTER_API_URL}/orderBookDetails`, 8_000_000),
+      // Funding stays null rather than failing the whole venue when the comparison feed is down.
+      optionalPayload(
+        fetchJson(this.fetchImplementation, `${LIGHTER_API_URL}/funding-rates`, 4_000_000),
+        LighterFundingRateListSchema,
+        { funding_rates: [] },
+      ),
+    ]);
+    const details = parsePayload(z.object({ order_book_details: z.array(z.unknown()) }), detailsPayload).order_book_details;
+    // Lighter's cross-venue funding feed publishes its own markets as an 8h-equivalent fraction of
+    // the current hourly rate (market_stats hourly percent × 8 ÷ 100, verified 2026-09-16).
+    const rate8hByMarketId = new Map<number, number>();
+    for (const row of rates.funding_rates) {
+      const rate = finiteNumber(row.rate);
+      // The feed multiplies in floating point upstream (e.g. 0.000023999999999999997); the hourly
+      // rate has six decimals of resolution, so twelve significant digits restore the clean value.
+      if (row.exchange === 'lighter' && rate !== null) rate8hByMarketId.set(row.market_id, Number(rate.toPrecision(12)));
+    }
+    // Lighter settles funding hourly on the hour.
+    const nextHour = new Date(Math.ceil((this.now() + 1) / 3_600_000) * 3_600_000).toISOString();
+    const stats: VenueFundingStat[] = [];
+    for (const rawRow of details) {
+      const row = LighterMarketDetailSchema.safeParse(rawRow);
+      if (!row.success || row.data.status !== 'active' || !/^[A-Z0-9]+$/.test(row.data.symbol)) continue;
+      const rate8h = rate8hByMarketId.get(row.data.market_id) ?? null;
+      stats.push({
+        venue: 'LIGHTER', base: row.data.symbol, quote: 'USDC',
+        fundingRate: rate8h === null ? null : String(rate8h / 8),
+        fundingIntervalHours: 1,
+        fundingRate8h: rate8h === null ? null : String(rate8h),
+        nextFundingAt: nextHour,
+        openInterestValue: positiveProduct(finiteNumber(row.data.open_interest), finiteNumber(row.data.mark_price)),
+        lastPrice: positiveNumberText(row.data.last_trade_price) ?? positiveNumberText(row.data.mark_price),
+        change24h: fractionFromPercent(row.data.daily_price_change),
+      });
+    }
+    return stats.sort((left, right) => left.base.localeCompare(right.base));
   }
 
   private async queryOkx(crossExSymbol: string, symbol: ParsedSymbol): Promise<PublicMarketSnapshot> {

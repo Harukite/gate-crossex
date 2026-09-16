@@ -15,6 +15,7 @@ const NO_SPACING = {
   KRAKEN: 0,
   HYPERLIQUID: 0,
   DERIBIT: 0,
+  LIGHTER: 0,
 };
 const databases: Database.Database[] = [];
 

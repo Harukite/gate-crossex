@@ -185,6 +185,7 @@ export const CrossExTransferAccountSchema = z.enum([
   'CROSSEX_KRAKEN',
   'CROSSEX_HYPERLIQUID',
   'CROSSEX_DERIBIT',
+  'CROSSEX_LIGHTER',
 ]);
 export type CrossExTransferAccount = z.infer<typeof CrossExTransferAccountSchema>;
 
@@ -228,26 +229,31 @@ export function canonicalizeCrossExTransfer(
 
 export type CrossExTransferRouteError =
   | 'HYPERLIQUID_USDC_SPOT_ONLY'
+  | 'LIGHTER_USDC_SPOT_ONLY'
   | 'KRAKEN_USDT_ONLY'
   | 'EXPLICIT_VENUE_ACCOUNT_REQUIRED'
   | 'USDT_SPOT_CROSSEX_REQUIRED'
   | 'INVALID_ISOLATED_TRANSFER_ROUTE';
+
+/** Gate's API changelog documents these venue accounts as USDC-only, and only to or from Gate Spot. */
+const USDC_SPOT_ONLY_ACCOUNTS = [
+  ['CROSSEX_HYPERLIQUID', 'HYPERLIQUID_USDC_SPOT_ONLY'],
+  ['CROSSEX_LIGHTER', 'LIGHTER_USDC_SPOT_ONLY'],
+] as const satisfies ReadonlyArray<readonly [CrossExTransferAccount, CrossExTransferRouteError]>;
 
 export function crossExTransferRouteError(
   transfer: Pick<CrossExTransferRequest, 'coin' | 'from' | 'to'>,
   accountMode: string,
 ): CrossExTransferRouteError | null {
   // Gate's transfer-coin endpoint is a global currency list, not a route matrix. Non-USDT
-  // transfers may use explicit venue accounts; Hyperliquid and Kraken add narrower exceptions.
+  // transfers may use explicit venue accounts; Hyperliquid, Lighter, and Kraken add narrower exceptions.
   const originalAccounts = [transfer.from, transfer.to] as const;
   const hasOriginalAccount = (account: CrossExTransferAccount) => originalAccounts.includes(account);
   const originalOtherSideOf = (account: CrossExTransferAccount) => transfer.from === account ? transfer.to : transfer.from;
 
-  if (hasOriginalAccount('CROSSEX_HYPERLIQUID')) {
-    if (transfer.coin !== 'USDC' || originalOtherSideOf('CROSSEX_HYPERLIQUID') !== 'SPOT') {
-      return 'HYPERLIQUID_USDC_SPOT_ONLY';
-    }
-    return null;
+  for (const [account, error] of USDC_SPOT_ONLY_ACCOUNTS) {
+    if (!hasOriginalAccount(account)) continue;
+    return transfer.coin !== 'USDC' || originalOtherSideOf(account) !== 'SPOT' ? error : null;
   }
   if (hasOriginalAccount('CROSSEX_KRAKEN') && transfer.coin !== 'USDT') return 'KRAKEN_USDT_ONLY';
 

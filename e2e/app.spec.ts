@@ -26,7 +26,7 @@ test.describe.serial('local trading terminal', () => {
     await expect(venueMenu).toBeVisible();
     await expect(venueMenu.getByRole('menuitemradio', { name: /Gate\.io/ })).toHaveAttribute('aria-checked', 'true');
     const venueLogos = venueMenu.locator('.venue-icon img');
-    await expect(venueLogos).toHaveCount(7);
+    await expect(venueLogos).toHaveCount(8);
     expect(await venueLogos.evaluateAll((images) => images.map((image) => image.getAttribute('src'))))
       .toEqual(expect.not.arrayContaining([expect.stringMatching(/^https?:\/\//)]));
   });
@@ -130,7 +130,7 @@ test.describe.serial('local trading terminal', () => {
     const firstVenue = page.getByRole('menuitemradio', { name: /Gate\.io/ });
     await expect(firstVenue).toBeFocused();
     await firstVenue.press('End');
-    const finalVenue = page.getByRole('menuitemradio', { name: /Deribit/ });
+    const finalVenue = page.getByRole('menuitemradio', { name: /Lighter/ });
     await expect(finalVenue).toBeFocused();
     await finalVenue.press('Escape');
     await expect(venueTrigger).toBeFocused();
@@ -170,11 +170,11 @@ test.describe.serial('local trading terminal', () => {
     await expect(exchangeFilter.getByRole('checkbox')).toHaveCount(3);
     await expect(exchangeFilter.getByRole('checkbox', { name: 'OKX' })).toBeChecked();
     await expect(exchangeFilter.getByRole('checkbox', { name: 'Hyperliquid' })).toBeChecked();
-    await expect(exchangeFilter.getByRole('checkbox', { name: 'Lighter' })).not.toBeChecked();
+    await expect(exchangeFilter.getByRole('checkbox', { name: 'Kucoin' })).not.toBeChecked();
     await expect(opportunities.getByRole('radio')).toHaveCount(1);
     await expect(opportunities.getByText('Est. fixed APR after fees')).toHaveCount(1);
     await expect(opportunities.getByText('$100k per leg · fees included')).toHaveCount(1);
-    await exchangeFilter.getByRole('checkbox', { name: 'Lighter' }).check();
+    await exchangeFilter.getByRole('checkbox', { name: 'Kucoin' }).check();
     await expect(opportunities.getByRole('radio')).toHaveCount(2);
     await expect(opportunities).toHaveCSS('gap', '1px');
     const opportunityCards = opportunities.getByRole('radio');
@@ -195,7 +195,7 @@ test.describe.serial('local trading terminal', () => {
     const readyOpportunity = opportunities.getByRole('radio', { name: /OKX ↔ Hyperliquid/ });
     await readyOpportunity.click();
     await expect(readyOpportunity).toHaveAttribute('aria-checked', 'true');
-    const lighterOpportunity = opportunities.getByRole('radio', { name: /OKX ↔ Lighter/ });
+    const lighterOpportunity = opportunities.getByRole('radio', { name: /OKX ↔ Kucoin/ });
     const readyBadge = opportunities.getByRole('radio', { name: /OKX ↔ Hyperliquid/ }).locator('em');
     const unavailableBadge = lighterOpportunity.locator('em');
     expect(await readyBadge.evaluate((element) => getComputedStyle(element).backgroundColor))
@@ -205,21 +205,21 @@ test.describe.serial('local trading terminal', () => {
     await expect(lighterOpportunity).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByText('Direct CrossEx execution unavailable')).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Position size' })).toBeDisabled();
-    await expect(lighterOpportunity).toContainText('OKX 50× · Lighter 50×');
+    await expect(lighterOpportunity).toContainText('OKX 50× · Kucoin 50×');
     await opportunities.getByRole('radio', { name: /OKX ↔ Hyperliquid/ }).click();
     const firstStep = page.locator('.boros-step').first();
     await expect(page.locator('.boros-view > .boros-kpis')).toHaveCount(0);
     await expect(firstStep.getByLabel('Strategy summary')).toBeVisible();
     await expect(page.getByRole('spinbutton', { name: 'Leverage for both sides' })).toHaveCount(0);
     await expect(exchangeFilter.getByRole('checkbox')).toHaveCount(3);
-    for (const exchange of ['OKX', 'Hyperliquid', 'Lighter']) {
+    for (const exchange of ['OKX', 'Hyperliquid', 'Kucoin']) {
       await expect(exchangeFilter.getByRole('checkbox', { name: exchange })).toBeChecked();
     }
     await expect(exchangeFilter.getByText('CrossEx supported', { exact: true })).toBeVisible();
     await expect(exchangeFilter.getByText('Manual on Boros', { exact: true })).toBeVisible();
     await expect(exchangeFilter.locator('.boros-exchange-group.supported')).toContainText('OKX');
     await expect(exchangeFilter.locator('.boros-exchange-group.supported')).toContainText('Hyperliquid');
-    await expect(exchangeFilter.locator('.boros-exchange-group.manual')).toContainText('Lighter');
+    await expect(exchangeFilter.locator('.boros-exchange-group.manual')).toContainText('Kucoin');
     const setupBox = await page.getByRole('region', { name: 'Filter exchanges' }).boundingBox();
     const opportunitiesBox = await page.getByRole('region', { name: 'Fixed-rate strategies' }).boundingBox();
     expect(setupBox?.y).toBeLessThan(opportunitiesBox?.y ?? 0);
@@ -536,6 +536,7 @@ test.describe.serial('local trading terminal', () => {
       'CrossEx · Bybit',
       'CrossEx · Hyperliquid',
       'CrossEx · Deribit',
+      'CrossEx · Lighter',
     ];
     await expect(page.getByLabel('From account').locator('option')).toHaveText(documentedUsdcAccounts);
     await expect(page.getByLabel('To account').locator('option')).toHaveText(documentedUsdcAccounts);

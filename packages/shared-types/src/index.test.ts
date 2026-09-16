@@ -100,6 +100,14 @@ describe('CrossEx transfer request schema', () => {
     expect(crossExTransferRouteError({ coin: 'USDC', from: 'CROSSEX_BINANCE', to: 'CROSSEX_GATE' }, 'CROSS_EXCHANGE')).toBeNull();
     expect(crossExTransferRouteError({ coin: 'USDC', from: 'CROSSEX_HYPERLIQUID', to: 'CROSSEX_GATE' }, 'CROSS_EXCHANGE'))
       .toBe('HYPERLIQUID_USDC_SPOT_ONLY');
+    expect(crossExTransferRouteError({ coin: 'USDC', from: 'CROSSEX_LIGHTER', to: 'SPOT' }, 'CROSS_EXCHANGE')).toBeNull();
+    expect(crossExTransferRouteError({ coin: 'USDC', from: 'SPOT', to: 'CROSSEX_LIGHTER' }, 'ISOLATED_EXCHANGE')).toBeNull();
+    expect(crossExTransferRouteError({ coin: 'USDT', from: 'CROSSEX_LIGHTER', to: 'SPOT' }, 'CROSS_EXCHANGE'))
+      .toBe('LIGHTER_USDC_SPOT_ONLY');
+    expect(crossExTransferRouteError({ coin: 'USDC', from: 'CROSSEX_LIGHTER', to: 'CROSSEX_GATE' }, 'CROSS_EXCHANGE'))
+      .toBe('LIGHTER_USDC_SPOT_ONLY');
+    expect(crossExTransferRouteError({ coin: 'USDC', from: 'CROSSEX_LIGHTER', to: 'CROSSEX_HYPERLIQUID' }, 'CROSS_EXCHANGE'))
+      .toBe('HYPERLIQUID_USDC_SPOT_ONLY');
     expect(crossExTransferRouteError({ coin: 'BTC', from: 'CROSSEX_KRAKEN', to: 'SPOT' }, 'ISOLATED_EXCHANGE'))
       .toBe('KRAKEN_USDT_ONLY');
     expect(crossExTransferRouteError({ coin: 'BTC', from: 'CROSSEX', to: 'SPOT' }, 'CROSS_EXCHANGE'))

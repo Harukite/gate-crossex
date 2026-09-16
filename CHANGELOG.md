@@ -2,6 +2,13 @@
 
 All notable changes to Gate CrossEx are documented in this file.
 
+## [0.2.5] - 2026-09-16
+
+### Added
+
+- Added Lighter as a CrossEx venue: `LIGHTER_FUTURE_{asset}_USDC` perpetuals now appear in the market catalog, execution-venue menu, strategy legs, favorites, funding overview, and funding history. Chart backfill and realized funding come from Lighter's public REST API (hourly settlements, signed by paying side), and the `CROSSEX_LIGHTER` transfer account is offered for USDC moves to and from Gate Spot, matching Gate's documented restriction.
+- Boros strategies with a Lighter leg are now executable on CrossEx instead of being marked manual-only.
+
 ## [0.2.4] - 2026-09-05
 
 ### Fixed

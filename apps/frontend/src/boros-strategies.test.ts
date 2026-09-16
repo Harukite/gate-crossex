@@ -41,7 +41,8 @@ function instrument(symbol: string): CrossExInstrument {
 
 describe('Boros strategy helpers', () => {
   it('maps supported Boros platforms to CrossEx symbols', () => {
-    expect(borosVenueId('Lighter')).toBeNull();
+    expect(borosVenueId('Lighter')).toBe('lighter');
+    expect(borosVenueId('Kucoin')).toBeNull();
     expect(borosCrossExSymbols(strategy, null)).toEqual({
       longVenueId: 'okx',
       shortVenueId: 'hyperliquid',

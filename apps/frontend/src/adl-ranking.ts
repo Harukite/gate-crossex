@@ -48,7 +48,7 @@ export function exchangeAdlLightLevel(venue: string, rawRank: string | null | un
     case 'KRAKEN':
       return rank >= 20 && rank <= 100 && rank % 20 === 0 ? Math.ceil((120 - rank) / 20) : null;
     default:
-      // Gate currently documents no exchange-rank scale for Hyperliquid or Deribit.
+      // Gate currently documents no exchange-rank scale for Hyperliquid, Deribit, or Lighter.
       return null;
   }
 }

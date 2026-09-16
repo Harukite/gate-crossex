@@ -4,6 +4,8 @@
 
 - `deribit.svg`: Deribit logo vector by Wikimedia Commons user Satechirohs, locally optimized under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). [Source](https://commons.wikimedia.org/wiki/File:Deribit_logo.svg).
 
+- `lighter.svg`: an original monogram drawn for this project (the icon set above ships no Lighter mark). It is not Lighter's trademark logo and can be swapped for a licensed vector.
+
 The Web3 Icons source is licensed under the MIT License:
 
 Copyright (c) 2024 0xa3k5

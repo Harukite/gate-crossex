@@ -16,7 +16,7 @@ export interface FundingOverviewCatalogView {
 export interface FundingOverviewServiceOptions {
   /** Age after which a request triggers a background refresh; a cold cache always awaits one sweep. */
   freshMs?: number;
-  /** More frequent refresh interval around Hyperliquid's hourly funding settlement. */
+  /** More frequent refresh interval around the hourly funding settlements on Hyperliquid and Lighter. */
   settlementFreshMs?: number;
   now?: () => number;
   warn?: (venue: string, reason: string) => void;

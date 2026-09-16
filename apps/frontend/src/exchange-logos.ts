@@ -4,9 +4,10 @@ import deribitLogo from './assets/exchanges/deribit.svg';
 import gateLogo from './assets/exchanges/gate.svg';
 import hyperliquidLogo from './assets/exchanges/hyperliquid.svg';
 import krakenLogo from './assets/exchanges/kraken.svg';
+import lighterLogo from './assets/exchanges/lighter.svg';
 import okxLogo from './assets/exchanges/okx.svg';
 
-export type ExchangeLogoId = 'gate' | 'binance' | 'okx' | 'bybit' | 'kraken' | 'hyperliquid' | 'deribit';
+export type ExchangeLogoId = 'gate' | 'binance' | 'okx' | 'bybit' | 'kraken' | 'hyperliquid' | 'deribit' | 'lighter';
 
 export const EXCHANGE_LOGOS: Record<ExchangeLogoId, string> = {
   gate: gateLogo,
@@ -16,6 +17,7 @@ export const EXCHANGE_LOGOS: Record<ExchangeLogoId, string> = {
   kraken: krakenLogo,
   hyperliquid: hyperliquidLogo,
   deribit: deribitLogo,
+  lighter: lighterLogo,
 };
 
 export function exchangeLogoFor(exchangeId: string): string | undefined {

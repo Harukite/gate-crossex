@@ -84,6 +84,7 @@ function readableCode(value: string): string {
 
 const TRANSFER_ROUTE_MESSAGES: Record<CrossExTransferRouteError, string> = {
   HYPERLIQUID_USDC_SPOT_ONLY: 'Hyperliquid transfers only support USDC between Gate Spot and CrossEx Hyperliquid.',
+  LIGHTER_USDC_SPOT_ONLY: 'Lighter transfers only support USDC between Gate Spot and CrossEx Lighter.',
   KRAKEN_USDT_ONLY: 'Kraken transfers only support USDT.',
   EXPLICIT_VENUE_ACCOUNT_REQUIRED: 'Choose a specific CrossEx venue for non-USDT transfers.',
   USDT_SPOT_CROSSEX_REQUIRED: 'Cross-exchange USDT transfers must be between Gate Spot and CrossEx.',
