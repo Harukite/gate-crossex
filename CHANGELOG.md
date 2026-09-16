@@ -2,7 +2,7 @@
 
 All notable changes to Gate CrossEx are documented in this file.
 
-## [Unreleased]
+## [0.2.5] - 2026-09-16
 
 ### Added
 
