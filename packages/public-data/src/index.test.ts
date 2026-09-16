@@ -218,6 +218,31 @@ describe('venue public market data client', () => {
     ]);
   });
 
+  it('normalizes Lighter candles after resolving market ids from its public market list', async () => {
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const value = String(url);
+      if (value === 'https://mainnet.zklighter.elliot.ai/api/v1/orderBooks') {
+        return response({ code: 200, order_books: [{ symbol: 'BTC', market_id: 1 }, { symbol: 'TSM', market_id: 140 }] });
+      }
+      expect(value).toBe('https://mainnet.zklighter.elliot.ai/api/v1/candles?market_id=1&resolution=15m&start_timestamp=1783701699999&end_timestamp=1783703499999&count_back=2');
+      return response({ code: 200, r: '15m', c: [
+        { t: 1_783_701_700_000, o: 63900, h: 63930, l: 63890, c: 63920, v: 3.2, V: 204480, i: 1 },
+        { t: 1_783_702_600_000, o: 63920, h: 63940, l: 63910, c: 63935, v: 2.1, V: 134263, i: 2 },
+      ] });
+    });
+    const client = new VenuePublicMarketDataClient(fetchMock as typeof fetch, () => 1_783_703_500_000);
+
+    expect(await client.queryCandles('LIGHTER_FUTURE_BTC_USDC', '15m', 2, 1_783_703_500_000)).toEqual([
+      { startTime: 1_783_701_700_000, open: '63900', high: '63930', low: '63890', close: '63920', volume: '3.2', closed: true },
+      { startTime: 1_783_702_600_000, open: '63920', high: '63940', low: '63910', close: '63935', volume: '2.1', closed: true },
+    ]);
+    // Unknown assets get at most one forced list refresh per minute before failing; with the
+    // clock frozen the cached list is reused, so no second list request goes out.
+    await expect(client.queryCandles('LIGHTER_FUTURE_NOPE_USDC', '15m', 2, 1_783_703_500_000))
+      .rejects.toMatchObject({ code: 'UNKNOWN_LIGHTER_MARKET' });
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/orderBooks'))).toHaveLength(1);
+  });
+
   it('resolves HIP-3 native names from cached allPerpMetas for candles and funding history', async () => {
     const now = 1_783_703_500_000;
     let stored: import('./index.js').HyperliquidPerpMetadataSnapshot | null = null;
@@ -364,6 +389,32 @@ describe('realized funding history', () => {
       expect.stringContaining('PF_XBTUSD'),
       expect.stringContaining('SOL_USDC-PERPETUAL'),
     ]));
+  });
+
+  it('signs Lighter hourly settlements by paying side and walks back overflowing windows', async () => {
+    const requests: string[] = [];
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const value = String(url);
+      requests.push(value);
+      if (value.endsWith('/orderBooks')) return response({ code: 200, order_books: [{ symbol: 'ETH', market_id: 0 }] });
+      if (new URL(value).searchParams.get('end_timestamp') === '1000') {
+        return response({ code: 200, resolution: '1h', fundings: Array.from({ length: 750 }, (_, index) => ({
+          timestamp: 251 + index, value: '0.01', rate: '0.0012', direction: 'short',
+        })) });
+      }
+      return response({ code: 200, resolution: '1h', fundings: [{ timestamp: 250, value: '0.02', rate: '0.0005', direction: 'long' }] });
+    });
+    const client = new VenuePublicMarketDataClient(fetchMock as typeof fetch);
+
+    const points = await client.queryFundingHistory('LIGHTER_FUTURE_ETH_USDC', 100_000, 1_000_000);
+
+    expect(points).toHaveLength(751);
+    expect(points[0]).toEqual({ timestamp: 250_000, rate: '0.000005' });
+    expect(points[1]).toEqual({ timestamp: 251_000, rate: '-0.000012' });
+    expect(requests.slice(1)).toEqual([
+      'https://mainnet.zklighter.elliot.ai/api/v1/fundings?market_id=0&resolution=1h&start_timestamp=100&end_timestamp=1000&count_back=0',
+      'https://mainnet.zklighter.elliot.ai/api/v1/fundings?market_id=0&resolution=1h&start_timestamp=100&end_timestamp=250&count_back=0',
+    ]);
   });
 
   it('retries transient Hyperliquid funding failures with bounded backoff', async () => {
@@ -656,6 +707,34 @@ describe('bulk venue funding stats', () => {
         venue: 'HYPERLIQUID', base: 'SNDK', quote: 'USDC', fundingRate: '-0.00001', fundingIntervalHours: 1, fundingRate8h: '-0.00008',
         nextFundingAt: '2026-07-23T08:00:00.000Z', openInterestValue: '10000',
         lastPrice: '50', change24h: '0.25',
+      },
+    ]);
+  });
+
+  it('joins Lighter market details with its 8h-equivalent funding feed and skips inactive markets', async () => {
+    const fetchMock = vi.fn((url: string | URL | Request) => {
+      const value = String(url);
+      if (value.endsWith('/orderBookDetails')) return response({ code: 200, order_book_details: [
+        { symbol: 'XAU', market_id: 92, status: 'active', mark_price: '2400', last_trade_price: 0, open_interest: 10, daily_price_change: 1.5 },
+        { symbol: 'ETH', market_id: 0, status: 'active', mark_price: '2000', last_trade_price: 2001, open_interest: 50, daily_price_change: -2.5 },
+        { symbol: 'OLD', market_id: 9, status: 'inactive', mark_price: '1', last_trade_price: 1, open_interest: 1, daily_price_change: 0 },
+      ], spot_order_book_details: [] });
+      expect(value).toBe('https://mainnet.zklighter.elliot.ai/api/v1/funding-rates');
+      return response({ code: 200, funding_rates: [
+        { market_id: 0, exchange: 'binance', symbol: 'ETH', rate: 0.0001 },
+        { market_id: 0, exchange: 'lighter', symbol: 'ETH', rate: -0.00012 },
+      ] });
+    });
+    const client = new VenuePublicMarketDataClient(fetchMock as typeof fetch, () => Date.parse('2026-09-16T08:20:00.000Z'));
+
+    expect(await client.queryVenueFundingStats('LIGHTER')).toEqual([
+      {
+        venue: 'LIGHTER', base: 'ETH', quote: 'USDC', fundingRate: '-0.000015', fundingIntervalHours: 1, fundingRate8h: '-0.00012',
+        nextFundingAt: '2026-09-16T09:00:00.000Z', openInterestValue: '100000', lastPrice: '2001', change24h: '-0.025',
+      },
+      {
+        venue: 'LIGHTER', base: 'XAU', quote: 'USDC', fundingRate: null, fundingIntervalHours: 1, fundingRate8h: null,
+        nextFundingAt: '2026-09-16T09:00:00.000Z', openInterestValue: '24000', lastPrice: '2400', change24h: '0.015',
       },
     ]);
   });

@@ -10,6 +10,7 @@ const BOROS_VENUES: Record<string, ExchangeLogoId> = {
   kraken: 'kraken',
   hyperliquid: 'hyperliquid',
   deribit: 'deribit',
+  lighter: 'lighter',
 };
 
 export const DEFAULT_BOROS_TAKER_FEE_RATE = 0.0005;

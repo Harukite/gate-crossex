@@ -102,7 +102,7 @@ const BPS = new Decimal(10_000);
 const MIN_NOTIONAL_REPAIR_BUFFER = new Decimal('1.1');
 
 function symbolFor(venue: string, asset: string): string {
-  const quote = venue === 'KRAKEN' ? 'USD' : venue === 'HYPERLIQUID' || venue === 'DERIBIT' ? 'USDC' : 'USDT';
+  const quote = venue === 'KRAKEN' ? 'USD' : venue === 'HYPERLIQUID' || venue === 'DERIBIT' || venue === 'LIGHTER' ? 'USDC' : 'USDT';
   const nativeAsset = nativeMarketAsset(venue, 'FUTURE', asset);
   return `${venue}_FUTURE_${nativeAsset}_${quote}`;
 }

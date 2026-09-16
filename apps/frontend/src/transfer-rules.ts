@@ -10,6 +10,7 @@ const TRANSFER_ACCOUNTS: CrossExTransferAccount[] = [
   'CROSSEX_KRAKEN',
   'CROSSEX_HYPERLIQUID',
   'CROSSEX_DERIBIT',
+  'CROSSEX_LIGHTER',
 ];
 
 const USDC_WITHDRAWAL_FEES_TO_GATE_SPOT: Partial<Record<CrossExTransferAccount, string>> = {
@@ -24,7 +25,7 @@ const USDC_WITHDRAWAL_FEES_TO_GATE_SPOT: Partial<Record<CrossExTransferAccount, 
 export function transferAccountsFor(coin: string, accountMode: string | undefined): CrossExTransferAccount[] {
   if (coin === 'USDT' && accountMode !== 'ISOLATED_EXCHANGE') return ['SPOT', 'CROSSEX'];
   return TRANSFER_ACCOUNTS.filter((account) => account !== 'CROSSEX'
-    && (coin === 'USDC' || account !== 'CROSSEX_HYPERLIQUID')
+    && (coin === 'USDC' || (account !== 'CROSSEX_HYPERLIQUID' && account !== 'CROSSEX_LIGHTER'))
     && (coin === 'USDT' || account !== 'CROSSEX_KRAKEN'));
 }
 

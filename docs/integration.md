@@ -31,7 +31,7 @@ The application routes writes through the reviewed REST adapter rather than Cros
 
 ## Public venue data
 
-CrossEx REST does not provide every candle, current-funding, funding-history, or bulk open-interest view required by the UI. Unauthenticated adapters query official public APIs for Gate, Binance, OKX, Bybit, Kraken, Hyperliquid, and Deribit. Every response is schema-validated and mapped back to a validated CrossEx instrument; public reference data never authorizes trading.
+CrossEx REST does not provide every candle, current-funding, funding-history, or bulk open-interest view required by the UI. Unauthenticated adapters query official public APIs for Gate, Binance, OKX, Bybit, Kraken, Hyperliquid, Deribit, and Lighter. Every response is schema-validated and mapped back to a validated CrossEx instrument; public reference data never authorizes trading.
 
 ## Execution controls
 

@@ -8,7 +8,7 @@ export interface StrategyAssetOption {
 }
 
 export function quoteForStrategyVenue(venueId: string): string {
-  return venueId === 'kraken' ? 'USD' : venueId === 'hyperliquid' || venueId === 'deribit' ? 'USDC' : 'USDT';
+  return venueId === 'kraken' ? 'USD' : venueId === 'hyperliquid' || venueId === 'deribit' || venueId === 'lighter' ? 'USDC' : 'USDT';
 }
 
 function strategySymbol(venueId: string, asset: string): string {

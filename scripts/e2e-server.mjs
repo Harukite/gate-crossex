@@ -10,7 +10,7 @@ import { TradingSession } from '../apps/backend/dist/trading-session.js';
 
 const PORT = 17_942;
 const assets = ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'SUI', 'PEPE', 'AAVE', 'LINK', 'ARB', 'HYPE'];
-const venues = ['GATE', 'BINANCE', 'OKX', 'BYBIT', 'KRAKEN', 'HYPERLIQUID', 'DERIBIT'];
+const venues = ['GATE', 'BINANCE', 'OKX', 'BYBIT', 'KRAKEN', 'HYPERLIQUID', 'DERIBIT', 'LIGHTER'];
 const dataDir = mkdtempSync(join(tmpdir(), 'gate-crossex-e2e-'));
 const config = loadConfig({
   ...process.env,
@@ -23,7 +23,7 @@ const config = loadConfig({
   GCT_GATE_REST_URL: 'http://127.0.0.1:9',
 });
 
-const quoteFor = (venue) => venue === 'KRAKEN' ? 'USD' : venue === 'HYPERLIQUID' || venue === 'DERIBIT' ? 'USDC' : 'USDT';
+const quoteFor = (venue) => venue === 'KRAKEN' ? 'USD' : venue === 'HYPERLIQUID' || venue === 'DERIBIT' || venue === 'LIGHTER' ? 'USDC' : 'USDT';
 const crossExLeverageMaxFor = (symbol) => symbol === 'GATE_FUTURE_BTC_USDT' ? '25'
   : symbol.startsWith('OKX_FUTURE_') ? '50'
     : symbol.startsWith('HYPERLIQUID_FUTURE_') ? '40'
@@ -185,7 +185,7 @@ const borosStrategyFetcher = async () => ({
     },
     daysToMaturity: 50, impliedAprSpread: 0.0403, maxPerpLeverage: 10, aprTimesMaxLeverage: 0.1487,
   }, {
-    id: 'ETH-2-1790294400-OKX-Lighter',
+    id: 'ETH-2-1790294400-OKX-Kucoin',
     longMarket: {
       marketId: 185, address: '0x6bb121533f78d8d0c8a847b0ab399e0399966563', tokenId: 2,
       name: 'ETHUSDT', assetSymbol: 'ETH', maturity: 1790294400, state: 'Normal', impliedApr: 0.0225,
@@ -194,7 +194,7 @@ const borosStrategyFetcher = async () => ({
     shortMarket: {
       marketId: 187, address: '0x1b435f61e9ce290c78659ae3e95d7ef9d0195255', tokenId: 2,
       name: 'ETHUSDC', assetSymbol: 'ETH', maturity: 1790294400, state: 'Normal', impliedApr: 0.0673,
-      maxLeverage: 2.1, maxPerpLeverage: 50, ammId: 0, platformName: 'Lighter',
+      maxLeverage: 2.1, maxPerpLeverage: 50, ammId: 0, platformName: 'Kucoin',
     },
     daysToMaturity: 50, impliedAprSpread: 0.0448, maxPerpLeverage: 10, aprTimesMaxLeverage: 0.1649,
   }],

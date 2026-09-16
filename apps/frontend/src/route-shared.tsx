@@ -12,7 +12,7 @@ export type Workspace = 'Trade' | 'Strategy' | 'Funding Rates' | 'Portfolio' | '
 export type NavigationLabel = Workspace | 'Boros by Pendle';
 export type StrategyKind = StrategyConfig['kind'];
 export type FundingMetric = 'Per interval' | 'APR' | '24h' | '7d' | '30d';
-export type FundingSortKey = 'asset' | 'oi' | 'arb' | 'average' | 'gate' | 'binance' | 'okx' | 'bybit' | 'kraken' | 'hyperliquid' | 'deribit';
+export type FundingSortKey = 'asset' | 'oi' | 'arb' | 'average' | 'gate' | 'binance' | 'okx' | 'bybit' | 'kraken' | 'hyperliquid' | 'deribit' | 'lighter';
 export type SortDirection = 'asc' | 'desc';
 
 export interface PairedPositionPrefill {
@@ -107,6 +107,7 @@ export const exchanges = [
   { id: 'kraken', name: 'Kraken', short: 'KR' },
   { id: 'hyperliquid', name: 'Hyperliquid', short: 'HL' },
   { id: 'deribit', name: 'Deribit', short: 'DR' },
+  { id: 'lighter', name: 'Lighter', short: 'LT' },
 ] as const satisfies ReadonlyArray<{ id: ExchangeLogoId; name: string; short: string }>;
 
 export const FUNDING_VENUE_COLORS: Record<string, string> = {
@@ -117,6 +118,7 @@ export const FUNDING_VENUE_COLORS: Record<string, string> = {
   KRAKEN: '#8d74f5',
   HYPERLIQUID: '#35c9bc',
   DERIBIT: '#54a7d8',
+  LIGHTER: '#7c9cff',
 };
 
 export function fundingVenueName(venue: string): string {
@@ -132,7 +134,7 @@ export function streamedAssets(snapshot: MarketSnapshot | null): string[] {
 }
 
 export function quoteFor(venueId: string): string {
-  return venueId === 'kraken' ? 'USD' : venueId === 'hyperliquid' || venueId === 'deribit' ? 'USDC' : 'USDT';
+  return venueId === 'kraken' ? 'USD' : venueId === 'hyperliquid' || venueId === 'deribit' || venueId === 'lighter' ? 'USDC' : 'USDT';
 }
 
 export function crossExSymbol(venueId: string, asset: string): string {

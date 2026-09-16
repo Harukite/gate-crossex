@@ -10,9 +10,9 @@ A local, open-source desktop interface for Gate CrossEx market data and live tra
 
 ## 什么是 CrossEx？ | What is CrossEx?
 
-CrossEx 将 Gate.io、Binance、OKX、Bybit、Kraken、Hyperliquid 和 Deribit 接入同一个跨所账户，在这些交易所之间共享保证金和可用资金，减少在每个平台分别预留资金的需要，从而提高资金效率。[注册 CrossEx](https://www.gate.com/zh/crossex?ref=QUANTGUY)。
+CrossEx 将 Gate.io、Binance、OKX、Bybit、Kraken、Hyperliquid、Deribit 和 Lighter 接入同一个跨所账户，在这些交易所之间共享保证金和可用资金，减少在每个平台分别预留资金的需要，从而提高资金效率。[注册 CrossEx](https://www.gate.com/zh/crossex?ref=QUANTGUY)。
 
-CrossEx connects Gate.io, Binance, OKX, Bybit, Kraken, Hyperliquid, and Deribit through one cross-exchange account, sharing margin and available capital across these venues. This reduces the need to reserve funds separately on each exchange and improves capital efficiency. [Sign up for CrossEx](https://www.gate.com/crossex?ref=QUANTGUY).
+CrossEx connects Gate.io, Binance, OKX, Bybit, Kraken, Hyperliquid, Deribit, and Lighter through one cross-exchange account, sharing margin and available capital across these venues. This reduces the need to reserve funds separately on each exchange and improves capital efficiency. [Sign up for CrossEx](https://www.gate.com/crossex?ref=QUANTGUY).
 
 ## 主要功能 | What it does
 
